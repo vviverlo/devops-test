@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# devops-test
 
-## Getting Started
+Демо-приложение на Next.js с CI/CD: пуш в `main` запускает линтер и тесты, и только после них сайт выкладывается на Vercel.
 
-First, run the development server:
+Сайт: https://devops-test-damn-7de4.vercel.app
+
+## Пайплайн
+
+Конфигурация лежит в [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml). GitHub Actions запускает её при пуше в ветку `main`.
+
+Шаги идут по порядку. Если шаг завершается с ошибкой, следующие не выполняются, и на хостинг попадает только проверенная версия.
+
+1. **Checkout** скачивает репозиторий.
+2. **Setup Node** ставит Node.js 22. Кэш npm ускоряет повторные запуски.
+3. **`npm ci`** ставит зависимости строго по `package-lock.json`, теми же версиями, что и локально.
+4. **`npm run lint`** запускает ESLint.
+5. **`npm test`** запускает тест на встроенном тест-раннере Node (`node --test`).
+6. **Pull / Build / Deploy** скачивает настройки проекта Vercel, собирает Next.js и публикует уже собранную версию.
+
+Деплой вызывает Vercel CLI из GitHub Actions, а не автодеплой Vercel по Git. Так выкладка ждёт окончания проверок. Токен и id проекта хранятся в GitHub Secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) и в репозиторий не попадают.
+
+GitHub Actions и Vercel выбраны как бесплатные managed-сервисы: свой сервер и Kubernetes для этого этапа не нужны. Схема близка к целевой: приложение на Vercel, данные позже в Supabase.
+
+## Мониторинг доступности
+
+Базовую проверку «сайт открывается» я бы сделал в UptimeRobot, без своего мониторинга.
+
+Монитор типа HTTP(s) раз в 5 минут запрашивает адрес продакшена. Если сайт не отвечает или код ответа не 200, уведомление уходит в Telegram или на почту. Этого достаточно, чтобы узнать о падении сайта.
+
+## Локальный запуск
 
 ```bash
+npm ci
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Приложение откроется на http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Проверки, которые выполняет пайплайн:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm test
+```
